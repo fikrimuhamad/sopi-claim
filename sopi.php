@@ -8,22 +8,31 @@ $botToken = "BOT TOKEN TELEGRAM LU";
 
 cekAkun();
 cekStock();
+
 while (true) {
-    
-    $keyword = readline('MASUKKAN KEYWORD / NAMA BARANG => : ');
-    if (empty($keyword)) {
-        echo "KEYWORD / NAMA BARANG TIDAK BOLEH KOSONG!! SILAHKAN DIISI!!\n";
-        continue;
+    echo "\n\n[1.] CLAIM BY KEYWORD BARANG\n";
+    echo "[2.] CLAIM BY ID BARANG\n";
+    $choice = readline('Masukkan pilihan Anda (1/2): ');
+
+    if ($choice == 1) {
+        $keyword = readline('MASUKKAN KEYWORD / NAMA BARANG => : ');
+        if (empty($keyword)) {
+            echo "KEYWORD / NAMA BARANG TIDAK BOLEH KOSONG!! SILAHKAN DIISI!!\n";
+            continue;
+        }
+        cekNamaBarang($keyword);
+    } elseif ($choice == 2) {
+        $idBarang = readline('MASUKKAN ID BARANG => : ');
+        if (empty($idBarang)) {
+            echo "ID BARANG KOSONG!! SILAHKAN DIISI!!\n";
+            continue;
+        }
+        cekId($idBarang);
+    } else {
+        echo "Pilihan tidak valid. Silakan pilih 1 atau 2.\n";
     }
-    cekNamaBarang($keyword);
-    
-    // $idBarang = readline('MASUKKAN ID BARANG => : ');
-    // if (empty($idBarang)) {
-    //     echo "ID BARANG KOSONG!! SILAHKAN DIISI!!\n";
-    //     continue;
-    // }
-    // cekId($idBarang);
 }
+
 
 function cekAkun()
 {
