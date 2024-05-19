@@ -5,19 +5,24 @@ $cookiesFilePath = 'cokAkun.txt';
 $cookies = readCookiesFromFile($cookiesFilePath);
 $chatId = "ID TELEGRAM LU";
 $botToken = "BOT TOKEN TELEGRAM LU";
-$delay = "2"; // ATUR DELAY LOOPING SESUKA LU DISINI
-
 
 cekAkun();
 cekStock();
-
 while (true) {
-    $idBarang = readline('MASUKKAN ID BARANG => : ');
-    if (empty($idBarang)) {
-        echo "ID BARANG KOSONG!! SILAHKAN DIISI!!\n";
+    
+    $keyword = readline('MASUKKAN KEYWORD / NAMA BARANG => : ');
+    if (empty($keyword)) {
+        echo "KEYWORD / NAMA BARANG TIDAK BOLEH KOSONG!! SILAHKAN DIISI!!\n";
         continue;
     }
-    cekId($idBarang);
+    cekNamaBarang($keyword);
+    
+    // $idBarang = readline('MASUKKAN ID BARANG => : ');
+    // if (empty($idBarang)) {
+    //     echo "ID BARANG KOSONG!! SILAHKAN DIISI!!\n";
+    //     continue;
+    // }
+    // cekId($idBarang);
 }
 
 function cekAkun()
@@ -25,18 +30,7 @@ function cekAkun()
     global $cookies, $userid, $username, $email;
 
     $sessionUrl = "https://shopee.co.id/api/v4/account/basic/get_account_info";
-
-    $options = [
-        'http' => [
-            'method' => 'GET',
-            'header' => getHeaders([
-                'Cookie' => $cookies
-            ]),
-        ],
-    ];
-
-    $context = stream_context_create($options);
-    $response = file_get_contents($sessionUrl, false, $context);
+    $response = makeGetRequest($sessionUrl, ['Cookie' => $cookies]);
     $response = json_decode($response, true);
 
     if ($response['error'] === 0) {
@@ -52,19 +46,7 @@ function cekStock()
     global $cookies, $userid;
 
     $sessionUrl = "https://idgame.shopee.co.id/api/buyer-mission/v2/quests/f32fb098ab94baef/store/items";
-
-    $options = [
-        'http' => [
-            'method' => 'GET',
-            'header' => getHeaders([
-                'x-user-id' => $userid,
-                'Cookie' => $cookies
-            ]),
-        ],
-    ];
-
-    $context = stream_context_create($options);
-    $response = file_get_contents($sessionUrl, false, $context);
+    $response = makeGetRequest($sessionUrl, ['x-user-id' => $userid, 'Cookie' => $cookies]);
     $response = json_decode($response, true);
 
     if ($response['code'] === 0) {
@@ -84,56 +66,32 @@ function cekStock()
     }
 }
 
-function cekId($targetId)
+function cekId($idBarang)
 {
-    global $cookies, $userid, $username, $botToken, $chatId, $delay;
+    global $cookies, $userid, $username;
 
     while (true) {
         $sessionUrl = "https://idgame.shopee.co.id/api/buyer-mission/v2/quests/f32fb098ab94baef/store/items";
-
-        $options = [
-            'http' => [
-                'method' => 'GET',
-                'header' => getHeaders([
-                    'x-user-id' => $userid,
-                    'Cookie' => $cookies
-                ]),
-            ],
-        ];
-
-        $context = stream_context_create($options);
-        $response = file_get_contents($sessionUrl, false, $context);
+        $response = makeGetRequest($sessionUrl, ['x-user-id' => $userid, 'Cookie' => $cookies]);
         $response = json_decode($response, true);
 
         if (isset($response['data']['item_list'])) {
             foreach ($response['data']['item_list'] as $item) {
-                if ($item['id'] == $targetId) {
+                if ($item['id'] == $idBarang) {
                     $itemName = strtoupper($item['name']);
                     if ($item['redeem_status'] == 1) {
-                        echo "[" . date('H:i:s') . "] BARANG ITEM ID: ({$targetId}) HABIS / BELUM TERSEDIA!!\n";
+                        echo "[" . date('H:i:s') . "] BARANG ITEM ID: ({$idBarang}) HABIS / BELUM TERSEDIA!!\n";
                     } else if ($item['redeem_status'] === 0) {
-                        $redeemUrl = "https://idgame.shopee.co.id/api/buyer-mission/v2/quests/f32fb098ab94baef/store/redeem/$targetId";
-
-                        $redeemOptions = [
-                            'http' => [
-                                'method' => 'POST',
-                                'header' => getHeaders([
-                                    'x-user-id' => $userid,
-                                    'Cookie' => $cookies
-                                ]),
-                            ],
-                        ];
-
-                        $redeemContext = stream_context_create($redeemOptions);
-                        $redeemResponse = file_get_contents($redeemUrl, false, $redeemContext);
+                        $redeemUrl = "https://idgame.shopee.co.id/api/buyer-mission/v2/quests/f32fb098ab94baef/store/redeem/$idBarang";
+                        $redeemResponse = makePostRequest($redeemUrl, [], ['x-user-id' => $userid, 'Cookie' => $cookies]);
                         $redeemResponse = json_decode($redeemResponse, true);
 
                         if ($redeemResponse['code'] === 0 && $redeemResponse['data']['code'] == 0) {
                             $point = $redeemResponse['data']['remain_score'];
-                            echo "[+] [" . date('H:i:s') . "] " . strtoupper($redeemResponse['msg']) . " CLAIM BARANG {$itemName} | ID: ({$targetId})!! POINT TERSISA: {$point}\n";
-                            sendTelegramMessage($username, $itemName, $targetId, $point);
+                            echo "[+] [" . date('H:i:s') . "] " . strtoupper($redeemResponse['msg']) . " CLAIM BARANG {$itemName} | ID: ({$idBarang})!! POINT TERSISA: {$point}\n";
+                            sendTelegramMessage($username, $itemName, $idBarang, $point);
                         } else {
-                            echo "[!] [" . date('H:i:s') . "] " . strtoupper($redeemResponse['msg']) . " CLAIM BARANG ID: ({$targetId}) GAGAL!!!!\n";
+                            echo "[!] [" . date('H:i:s') . "] " . strtoupper($redeemResponse['msg']) . " CLAIM BARANG ID: ({$idBarang}) GAGAL!!!!\n";
                         }
                     }
                 }
@@ -142,14 +100,52 @@ function cekId($targetId)
             echo "[" . date('H:i:s') . "] BARANG YANG DICLAIM HABIS ATAU BARANG ITEM ID YANG DIMASUKKAN TIDAK DITEMUKAN!!\n";
         }
 
-        sleep($delay);
+        // sleep($delay);
     }
 }
 
-function sendTelegramMessage($username, $itemName, $itemId, $point)
+function cekNamaBarang($keyword)
 {
-    global $botToken, $chatId;
+    global $cookies, $userid, $username, $botToken, $chatId;
 
+    while (true) {
+        $sessionUrl = "https://idgame.shopee.co.id/api/buyer-mission/v2/quests/f32fb098ab94baef/store/items";
+        $response = makeGetRequest($sessionUrl, ['x-user-id' => $userid, 'Cookie' => $cookies, 'Content-type' => 'application/json']);
+        $response = json_decode($response, true);
+
+        if (isset($response['data']['item_list'])) {
+            foreach ($response['data']['item_list'] as $item) {
+                if (stripos($item['name'], $keyword) !== false) {
+
+                    $itemName = strtoupper($item['name']);
+                    if ($item['redeem_status'] == 1) {
+                        echo "[" . date('H:i:s') . "] BARANG ITEM NAME: " . strtoupper($item['name']) . " ({$item['id']}) HABIS / BELUM TERSEDIA!!\n";
+                    } else if ($item['redeem_status'] === 0) {
+                        $idBarang = $item['id'];
+                        $redeemUrl = "https://idgame.shopee.co.id/api/buyer-mission/v2/quests/f32fb098ab94baef/store/redeem/$idBarang";
+                        $redeemResponse = makePostRequest($redeemUrl, [], ['x-user-id' => $userid, 'Cookie' => $cookies]);
+                        $redeemResponse = json_decode($redeemResponse, true);
+
+                        if ($redeemResponse['code'] === 0 && $redeemResponse['data']['code'] == 0) {
+                            $point = $redeemResponse['data']['remain_score'];
+                            echo "[+] [" . date('H:i:s') . "] " . strtoupper($redeemResponse['msg']) . " CLAIM BARANG {$itemName} | ID: ({$idBarang})!! POINT TERSISA: {$point}\n";
+                            sendTelegramMessage($username, $itemName, $idBarang, $point, $botToken, $chatId);
+                        } else {
+                            echo "[!] [" . date('H:i:s') . "] " . strtoupper($redeemResponse['msg']) . " CLAIM BARANG NAME: ({$itemName}[{$idBarang}]) GAGAL!!!!\n";
+                        }
+                    }
+                }
+            }
+        } else {
+            echo "[" . date('H:i:s') . "] BARANG YANG DICLAIM HABIS ATAU BARANG DENGAN KATA KUNCI YANG DIMASUKKAN TIDAK DITEMUKAN!!\n";
+        }
+
+        // sleep($delay);
+    }
+}
+
+function sendTelegramMessage($username, $itemName, $itemId, $point, $botToken, $chatId)
+{
     $date = date("d-M");
     $message = "BERHASIL CLAIM BARANG!! ( ID: " . strtoupper($username) . " )\nTIME: $date " . date('H:i:s') . "\nBARANG:\n{$itemName} -  ( {$itemId} )\nPOINT TERSISA: {$point}";
 
@@ -159,22 +155,7 @@ function sendTelegramMessage($username, $itemName, $itemId, $point)
         'text' => $message
     ];
 
-    $options = [
-        'http' => [
-            'method' => 'POST',
-            'header' => 'Content-type: application/json',
-            'content' => json_encode($data)
-        ]
-    ];
-
-    $context = stream_context_create($options);
-    $result = file_get_contents($telegramApiUrl, false, $context);
-
-    if ($result === false) {
-        echo "GAGAL MENGIRIM PESAN KE TELEGRAM!\n";
-    } else {
-        echo "[" . date('H:i:s') . "] BERHASIL MENGIRIM PESAN KE TELEGRAM!!\n";
-    }
+    makePostRequest($telegramApiUrl, $data);
 }
 
 function readCookiesFromFile($filePath)
@@ -213,5 +194,35 @@ function getHeaders($additionalHeaders = [])
         $defaultHeaders[] = "$key: $value";
     }
 
-    return implode("\r\n", $defaultHeaders);
+    return $defaultHeaders;
+}
+
+
+function makeGetRequest($url, $headers = [])
+{
+    $options = [
+        'http' => [
+            'method' => 'GET',
+            'header' => getHeaders($headers),
+        ],
+    ];
+    $context = stream_context_create($options);
+    return file_get_contents($url, false, $context);
+}
+
+function makePostRequest($url, $data = [], $headers = [])
+{
+    // Ensure Content-type is set correctly
+    if (!isset($headers['Content-type'])) {
+        $headers['Content-type'] = 'application/json';
+    }
+    $options = [
+        'http' => [
+            'method' => 'POST',
+            'header' => getHeaders($headers),
+            'content' => json_encode($data),
+        ],
+    ];
+    $context = stream_context_create($options);
+    return file_get_contents($url, false, $context);
 }
